@@ -185,6 +185,37 @@
     }
     .tab-btn.active { background: var(--text); color: var(--bg); }
 
+    /* Caja rápida para añadir directamente a la lista de la compra */
+    .quick-shop-box {
+      background: var(--card);
+      border: 1px solid var(--blue);
+      border-radius: var(--radius);
+      padding: 12px;
+      margin-bottom: 12px;
+      display: none;
+    }
+    .quick-shop-title {
+      font-size: 0.8rem;
+      color: #93c5fd;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    .quick-shop-row {
+      display: grid;
+      grid-template-columns: 1fr 72px auto;
+      gap: 6px;
+    }
+    .btn-add-shop {
+      background: var(--blue);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 0 14px;
+      font-weight: 800;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+
     .filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 14px; }
     .chip {
       padding: 7px 14px;
@@ -209,29 +240,83 @@
       justify-content: space-between;
       align-items: center;
       gap: 10px;
+      transition: opacity 0.2s;
     }
     .product-card.low-stock { border-left: 4px solid var(--orange); }
+    .product-card.checked-item {
+      opacity: 0.5;
+      background: rgba(30, 41, 59, 0.55);
+      border-left: 4px solid var(--green);
+    }
+    .product-card.checked-item .prod-title {
+      text-decoration: line-through;
+      color: var(--muted);
+    }
+
+    /* Checkbox grande para el carro */
+    .cart-check {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: 2px solid var(--muted);
+      background: #0f172a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      font-size: 1rem;
+      font-weight: 900;
+      color: #022c22;
+    }
+    .cart-check.checked {
+      background: var(--green);
+      border-color: var(--green);
+    }
+
+    .cart-divider {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      padding: 6px 4px;
+      border-top: 1px dashed var(--card-light);
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+    .btn-clear-cart {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid var(--red);
+      color: #fca5a5;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      cursor: pointer;
+    }
+
     .prod-info { flex: 1; min-width: 0; }
     .prod-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 5px; word-break: break-word; }
     .badges { display: flex; flex-wrap: wrap; gap: 5px; font-size: 0.75rem; }
     .badge { padding: 3px 8px; border-radius: 6px; background: #0f172a; color: var(--muted); }
     .badge.warn { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
     .badge.danger { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
+    .badge.shop-only { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
 
     .prod-controls { display: flex; align-items: center; gap: 8px; }
     .qty-btn {
-      width: 38px;
-      height: 38px;
+      width: 36px;
+      height: 36px;
       border-radius: 10px;
       border: none;
-      font-size: 1.25rem;
+      font-size: 1.2rem;
       font-weight: 700;
       cursor: pointer;
       background: var(--card-light);
       color: var(--text);
     }
     .qty-btn:active { transform: scale(0.94); }
-    .stock-num { font-size: 1.25rem; font-weight: 800; min-width: 30px; text-align: center; }
+    .stock-num { font-size: 1.15rem; font-weight: 800; min-width: 26px; text-align: center; }
 
     .fab {
       position: fixed;
@@ -306,7 +391,6 @@
     .radio-tab.active { background: var(--blue); color: white; border-color: var(--blue); }
     .empty-msg { text-align: center; color: var(--muted); padding: 30px 10px; }
 
-    /* Lista de categorías personalizadas en modal */
     .custom-cat-list {
       margin-top: 16px;
       padding-top: 14px;
@@ -373,6 +457,16 @@
       <button id="tabShop" class="tab-btn" onclick="setTab('comprar')">🛒 Para comprar (<span id="countShop">0</span>)</button>
     </div>
 
+    <!-- Cuadro rápido visible solo en "Para comprar" -->
+    <div id="quickShopBox" class="quick-shop-box">
+      <div class="quick-shop-title">🛒 Apuntar solo a la lista de la compra (no entra en el trastero)</div>
+      <form class="quick-shop-row" onsubmit="agregarACompraRapido(event)">
+        <input type="text" id="shopNombreInput" placeholder="Ej: Pan, Fruta, Pollo..." required />
+        <input type="number" id="shopCantInput" value="1" min="1" required title="Cantidad" />
+        <button type="submit" class="btn-add-shop">➕</button>
+      </form>
+    </div>
+
     <input type="search" id="searchInput" placeholder="Buscar producto..." oninput="renderizarLista()" />
     <div id="filtersContainer" class="filters"></div>
 
@@ -381,7 +475,7 @@
     </div>
   </div>
 
-  <button class="fab" onclick="abrirModalManual()">➕ Añadir a mano</button>
+  <button id="fabBtn" class="fab" onclick="abrirModalManual()">➕ Añadir a mano</button>
 
   <!-- MODAL 1: PIN FAMILIAR -->
   <div id="modalPin" class="modal-backdrop">
@@ -541,6 +635,7 @@
     let tabActual = 'inventario';
     let filtroCat = 'Todos';
     let productos = [];
+    let listaCompra = [];
     let historial = [];
 
     let html5QrCode = null;
@@ -561,6 +656,7 @@
       CATEGORIAS_BASE.forEach(registrar);
       categoriasGuardadas.forEach(registrar);
       productos.forEach(p => registrar(p.categoria));
+      listaCompra.forEach(c => registrar(c.categoria));
       return Array.from(mapa.values());
     }
 
@@ -576,7 +672,6 @@
     function renderizarCategoriasUI(selectIdForzar = null, valorForzar = null) {
       const todas = obtenerTodasCategorias();
 
-      // 1. Chips de filtro en la pantalla principal
       const filtersEl = document.getElementById('filtersContainer');
       let htmlChips = `<button class="chip ${filtroCat === 'Todos' ? 'active' : ''}" onclick="setFiltroCat('Todos')">Todos</button>`;
       todas.forEach(cat => {
@@ -586,7 +681,6 @@
       htmlChips += `<button class="chip add-cat" onclick="abrirModalCategoria(null)">🏷️ Categorías</button>`;
       filtersEl.innerHTML = htmlChips;
 
-      // 2. Desplegables dentro de los modales
       ['ncCategoria', 'mpCategoria'].forEach(selId => {
         const sel = document.getElementById(selId);
         if (!sel) return;
@@ -597,7 +691,6 @@
         if (previo && todas.includes(previo)) sel.value = previo;
       });
 
-      // 3. Lista de categorías personalizadas dentro del modal (con botón borrar)
       renderizarListaBorrarCategorias();
     }
 
@@ -661,16 +754,13 @@
 
       if (!confirm(`¿Seguro que quieres borrar la categoría "${cat}"?${avisoExtra}`)) return;
 
-      // 1. Quitar de localStorage
       categoriasGuardadas = categoriasGuardadas.filter(c => c.toLowerCase() !== cat.toLowerCase());
       localStorage.setItem('trastero_cats', JSON.stringify(categoriasGuardadas));
 
-      // 2. Si estaba seleccionado ese filtro, volver a Todos
       if (filtroCat.toLowerCase() === cat.toLowerCase()) {
         filtroCat = 'Todos';
       }
 
-      // 3. Reasignar productos afectados a "Otros" en Supabase
       for (const p of afectados) {
         await api('editar_producto', {
           id: p.id,
@@ -774,6 +864,8 @@
       tabActual = tab;
       document.getElementById('tabInv').className = 'tab-btn' + (tab === 'inventario' ? ' active' : '');
       document.getElementById('tabShop').className = 'tab-btn' + (tab === 'comprar' ? ' active' : '');
+      document.getElementById('quickShopBox').style.display = tab === 'comprar' ? 'block' : 'none';
+      document.getElementById('fabBtn').style.display = tab === 'inventario' ? 'block' : 'none';
       renderizarLista();
     }
 
@@ -819,6 +911,7 @@
       try {
         const res = await api('listar');
         productos = res.productos || [];
+        listaCompra = res.lista_compra || [];
         renderizarCategoriasUI();
         renderizarLista();
       } catch (err) {
@@ -826,6 +919,62 @@
       }
     }
 
+    // --- FUNCIONES DE LA LISTA DE LA COMPRA ---
+    async function agregarACompraRapido(e) {
+      e.preventDefault();
+      const inputNombre = document.getElementById('shopNombreInput');
+      const inputCant = document.getElementById('shopCantInput');
+      const nombre = inputNombre.value.trim();
+      const cantidad = parseInt(inputCant.value, 10) || 1;
+      if (!nombre) return;
+
+      const categoria = filtroCat !== 'Todos' ? filtroCat : 'Comida';
+      inputNombre.value = '';
+      inputCant.value = '1';
+
+      await api('crear_compra', { nombre, categoria, cantidad });
+      mostrarAviso(`🛒 Añadido a la compra: ${nombre} (x${cantidad})`, 'in');
+      await cargarProductos();
+    }
+
+    async function toggleCheckCompra(tipo, id, nuevoEstado) {
+      // Actualización visual instantánea antes de responder el servidor
+      if (tipo === 'lista') {
+        const item = listaCompra.find(x => x.id === id);
+        if (item) item.comprado = nuevoEstado;
+      } else {
+        const prod = productos.find(x => x.id === id);
+        if (prod) prod.en_carro = nuevoEstado;
+      }
+      renderizarLista();
+
+      await api('toggle_compra', { tipo, id, checked: nuevoEstado });
+      await cargarProductos();
+    }
+
+    async function ajustarCantidadCompra(id, delta) {
+      await api('ajustar_compra', { id, delta });
+      await cargarProductos();
+    }
+
+    async function borrarItemCompra(id) {
+      await api('eliminar_compra', { id });
+      await cargarProductos();
+    }
+
+    async function limpiarComprados() {
+      const sueltosMarcados = listaCompra.filter(c => c.comprado);
+      if (!sueltosMarcados.length) {
+        alert('Los productos del trastero desaparecerán de aquí cuando los piques al llegar a casa.');
+        return;
+      }
+      if (!confirm(`¿Quitar de la lista los ${sueltosMarcados.length} producto(s) sueltos ya cogidos?`)) return;
+      await api('eliminar_compra', { limpiar_comprados: true });
+      mostrarAviso('🧹 Lista limpiada', 'in');
+      await cargarProductos();
+    }
+
+    // --- ESCÁNER ---
     async function toggleCamara() {
       const btn = document.getElementById('btnToggleCam');
       const readerEl = document.getElementById('reader');
@@ -970,7 +1119,7 @@
     function abrirModalManual() {
       pausaEscaneo = true;
       renderizarCategoriasUI();
-      document.getElementById('modalProdTitle').textContent = '➕ Añadir producto a mano';
+      document.getElementById('modalProdTitle').textContent = '➕ Añadir producto al trastero';
       document.getElementById('editProdId').value = '';
       document.getElementById('mpNombre').value = '';
       document.getElementById('mpCategoria').value = filtroCat !== 'Todos' ? filtroCat : 'Comida';
@@ -1059,49 +1208,138 @@
 
     function renderizarLista() {
       const q = document.getElementById('searchInput').value.toLowerCase().trim();
-      const paraComprar = productos.filter(p => p.stock < (p.stock_minimo ?? 1));
-      document.getElementById('countInv').textContent = productos.length;
-      document.getElementById('countShop').textContent = paraComprar.length;
+      const bajoMinimoInv = productos.filter(p => p.stock < (p.stock_minimo ?? 1));
 
-      let lista = tabActual === 'comprar' ? paraComprar : productos;
-      if (filtroCat !== 'Todos') {
-        lista = lista.filter(p => (p.categoria || 'Comida').toLowerCase() === filtroCat.toLowerCase());
-      }
-      if (q) lista = lista.filter(p => p.nombre.toLowerCase().includes(q));
+      // Contador de "Para comprar": muestra lo que falta por coger (sin marcar)
+      const pendientesCount =
+        bajoMinimoInv.filter(p => !p.en_carro).length +
+        listaCompra.filter(c => !c.comprado).length;
+
+      document.getElementById('countInv').textContent = productos.length;
+      document.getElementById('countShop').textContent = pendientesCount;
 
       const container = document.getElementById('productList');
-      if (!lista.length) {
-        container.innerHTML = `<div class="empty-msg">${
-          tabActual === 'comprar'
-            ? '🎉 ¡No falta nada! Todo está por encima del mínimo.'
-            : 'No hay productos aquí todavía. Escanea uno o pulsa "Añadir a mano".'
-        }</div>`;
+
+      // --- VISTA 1: INVENTARIO DEL TRASTERO ---
+      if (tabActual === 'inventario') {
+        let lista = productos;
+        if (filtroCat !== 'Todos') {
+          lista = lista.filter(p => (p.categoria || 'Comida').toLowerCase() === filtroCat.toLowerCase());
+        }
+        if (q) lista = lista.filter(p => p.nombre.toLowerCase().includes(q));
+
+        if (!lista.length) {
+          container.innerHTML = `<div class="empty-msg">No hay productos aquí todavía. Escanea uno o pulsa "Añadir a mano".</div>`;
+          return;
+        }
+
+        container.innerHTML = lista.map(p => {
+          const bajoMinimo = p.stock < (p.stock_minimo ?? 1);
+          const cadInfo = estadoCaducidad(p.caducidad);
+          const faltan = Math.max(0, (p.stock_minimo ?? 1) - p.stock);
+          return `
+            <div class="product-card ${bajoMinimo ? 'low-stock' : ''}">
+              <div class="prod-info" onclick="abrirModalEditar(${p.id})" style="cursor:pointer;">
+                <div class="prod-title">${escapeHtml(p.nombre)}</div>
+                <div class="badges">
+                  <span class="badge">${escapeHtml(etiquetaCat(p.categoria || 'Comida'))}</span>
+                  ${bajoMinimo ? `<span class="badge warn">Faltan ${faltan} (mín: ${p.stock_minimo})</span>` : ''}
+                  ${cadInfo ? `<span class="badge ${cadInfo.clase}">${cadInfo.texto}</span>` : ''}
+                  ${p.codigos && p.codigos.length > 1 ? `<span class="badge">${p.codigos.length} códigos</span>` : ''}
+                </div>
+              </div>
+              <div class="prod-controls">
+                <button class="qty-btn" onclick="ajusteRapido(${p.id}, '${escapeJs(p.nombre)}', -1)">−</button>
+                <span class="stock-num">${p.stock}</span>
+                <button class="qty-btn" onclick="ajusteRapido(${p.id}, '${escapeJs(p.nombre)}', 1)">+</button>
+              </div>
+            </div>
+          `;
+        }).join('');
         return;
       }
 
-      container.innerHTML = lista.map(p => {
-        const bajoMinimo = p.stock < (p.stock_minimo ?? 1);
-        const cadInfo = estadoCaducidad(p.caducidad);
-        const faltan = Math.max(0, (p.stock_minimo ?? 1) - p.stock);
+      // --- VISTA 2: LISTA DE LA COMPRA CON CHECK Y ORDEN AUTOMÁTICO ---
+      let combinados = [
+        ...listaCompra.map(c => ({
+          tipo: 'lista',
+          id: c.id,
+          nombre: c.nombre,
+          categoria: c.categoria || 'Comida',
+          cantidad: c.cantidad || 1,
+          checked: Boolean(c.comprado)
+        })),
+        ...bajoMinimoInv.map(p => ({
+          tipo: 'inventario',
+          id: p.id,
+          nombre: p.nombre,
+          categoria: p.categoria || 'Comida',
+          faltan: Math.max(1, (p.stock_minimo ?? 1) - p.stock),
+          stockActual: p.stock,
+          checked: Boolean(p.en_carro)
+        }))
+      ];
+
+      if (filtroCat !== 'Todos') {
+        combinados = combinados.filter(item => item.categoria.toLowerCase() === filtroCat.toLowerCase());
+      }
+      if (q) {
+        combinados = combinados.filter(item => item.nombre.toLowerCase().includes(q));
+      }
+
+      if (!combinados.length) {
+        container.innerHTML = `<div class="empty-msg">🎉 ¡Lista vacía! No te falta nada por comprar.</div>`;
+        return;
+      }
+
+      // Separar pendientes (arriba) y cogidos en el carro (abajo)
+      const pendientes = combinados.filter(i => !i.checked);
+      const cogidos = combinados.filter(i => i.checked);
+
+      const renderTarjetaCompra = (item) => {
+        const esLista = item.tipo === 'lista';
         return `
-          <div class="product-card ${bajoMinimo ? 'low-stock' : ''}">
-            <div class="prod-info" onclick="abrirModalEditar(${p.id})" style="cursor:pointer;">
-              <div class="prod-title">${escapeHtml(p.nombre)}</div>
+          <div class="product-card ${item.checked ? 'checked-item' : (esLista ? '' : 'low-stock')}">
+            <div class="cart-check ${item.checked ? 'checked' : ''}"
+                 onclick="toggleCheckCompra('${item.tipo}', ${item.id}, ${!item.checked})">
+              ${item.checked ? '✓' : ''}
+            </div>
+            <div class="prod-info" onclick="toggleCheckCompra('${item.tipo}', ${item.id}, ${!item.checked})" style="cursor:pointer;">
+              <div class="prod-title">${escapeHtml(item.nombre)}</div>
               <div class="badges">
-                <span class="badge">${escapeHtml(etiquetaCat(p.categoria || 'Comida'))}</span>
-                ${bajoMinimo ? `<span class="badge warn">Faltan ${faltan} (mín: ${p.stock_minimo})</span>` : ''}
-                ${cadInfo ? `<span class="badge ${cadInfo.clase}">${cadInfo.texto}</span>` : ''}
-                ${p.codigos && p.codigos.length > 1 ? `<span class="badge">${p.codigos.length} códigos</span>` : ''}
+                <span class="badge">${escapeHtml(etiquetaCat(item.categoria))}</span>
+                ${esLista
+                  ? `<span class="badge shop-only">Solo compra</span>`
+                  : `<span class="badge warn">Trastero: quedan ${item.stockActual} (faltan ${item.faltan})</span>`
+                }
               </div>
             </div>
-            <div class="prod-controls">
-              <button class="qty-btn" onclick="ajusteRapido(${p.id}, '${escapeJs(p.nombre)}', -1)">−</button>
-              <span class="stock-num">${p.stock}</span>
-              <button class="qty-btn" onclick="ajusteRapido(${p.id}, '${escapeJs(p.nombre)}', 1)">+</button>
-            </div>
+            ${esLista ? `
+              <div class="prod-controls">
+                <button class="qty-btn" onclick="ajustarCantidadCompra(${item.id}, -1)">−</button>
+                <span class="stock-num">${item.cantidad}</span>
+                <button class="qty-btn" onclick="ajustarCantidadCompra(${item.id}, 1)">+</button>
+                <button class="qty-btn" style="background:transparent; color:#fca5a5; font-size:1rem;" onclick="borrarItemCompra(${item.id})" title="Quitar">🗑️</button>
+              </div>
+            ` : ''}
           </div>
         `;
-      }).join('');
+      };
+
+      let html = pendientes.map(renderTarjetaCompra).join('');
+
+      if (cogidos.length) {
+        const haySueltosCogidos = cogidos.some(i => i.tipo === 'lista');
+        html += `
+          <div class="cart-divider">
+            <span>✅ En el carro (${cogidos.length})</span>
+            ${haySueltosCogidos ? `<button class="btn-clear-cart" onclick="limpiarComprados()">🗑️ Borrar cogidos</button>` : ''}
+          </div>
+        `;
+        html += cogidos.map(renderTarjetaCompra).join('');
+      }
+
+      container.innerHTML = html;
     }
 
     function escapeHtml(str) {
