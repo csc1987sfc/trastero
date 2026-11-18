@@ -215,6 +215,22 @@
       font-size: 0.95rem;
       cursor: pointer;
     }
+    .btn-pick-trastero {
+      width: 100%;
+      margin-top: 10px;
+      padding: 11px;
+      border-radius: 10px;
+      border: 1px solid var(--green);
+      background: rgba(16, 185, 129, 0.14);
+      color: #6ee7b7;
+      font-weight: 700;
+      font-size: 0.92rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
 
     .filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 14px; }
     .chip {
@@ -253,7 +269,6 @@
       color: var(--muted);
     }
 
-    /* Checkbox grande para el carro */
     .cart-check {
       width: 28px;
       height: 28px;
@@ -415,6 +430,61 @@
       font-size: 0.82rem;
       cursor: pointer;
     }
+
+    /* Lista de productos del trastero dentro del modal de compra */
+    .trastero-picker-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 52vh;
+      overflow-y: auto;
+      margin-top: 10px;
+    }
+    .trastero-picker-item {
+      background: #0f172a;
+      border: 1px solid var(--card-light);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .picker-controls {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+    .mini-qty-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      border: none;
+      background: var(--card-light);
+      color: var(--text);
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .mini-qty-input {
+      width: 42px;
+      padding: 5px 2px;
+      text-align: center;
+      font-size: 0.95rem;
+      font-weight: 700;
+      border-radius: 8px;
+    }
+    .btn-send-shop {
+      background: var(--green);
+      color: #022c22;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 11px;
+      font-weight: 800;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -457,14 +527,17 @@
       <button id="tabShop" class="tab-btn" onclick="setTab('comprar')">🛒 Para comprar (<span id="countShop">0</span>)</button>
     </div>
 
-    <!-- Cuadro rápido visible solo en "Para comprar" -->
+    <!-- Cuadro visible solo en "Para comprar" -->
     <div id="quickShopBox" class="quick-shop-box">
-      <div class="quick-shop-title">🛒 Apuntar solo a la lista de la compra (no entra en el trastero)</div>
+      <div class="quick-shop-title">🛒 Apuntar a mano (no entra en el trastero)</div>
       <form class="quick-shop-row" onsubmit="agregarACompraRapido(event)">
         <input type="text" id="shopNombreInput" placeholder="Ej: Pan, Fruta, Pollo..." required />
         <input type="number" id="shopCantInput" value="1" min="1" required title="Cantidad" />
         <button type="submit" class="btn-add-shop">➕</button>
       </form>
+      <button type="button" class="btn-pick-trastero" onclick="abrirModalElegirTrastero()">
+        📦 Elegir productos del trastero
+      </button>
     </div>
 
     <input type="search" id="searchInput" placeholder="Buscar producto..." oninput="renderizarLista()" />
@@ -614,6 +687,20 @@
 
       <div class="modal-actions">
         <button type="button" class="btn-secondary" style="width:100%;" onclick="cerrarModalCategoria()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 5: ELEGIR PRODUCTOS DEL TRASTERO PARA LA COMPRA -->
+  <div id="modalElegirTrastero" class="modal-backdrop">
+    <div class="modal">
+      <h2>📦 Añadir del trastero a la compra</h2>
+      <p style="color:var(--muted); font-size:0.83rem; margin-bottom:10px;">Elige la cantidad que quieres comprar y pulsa <strong>➕</strong>.</p>
+      <input type="search" id="buscarTrasteroShopInput" placeholder="Filtrar productos del trastero..." oninput="renderizarListaPickerTrastero()" />
+      <div id="modalTrasteroFeedback" style="color:#6ee7b7; font-size:0.85rem; font-weight:700; margin-top:8px; display:none;"></div>
+      <div id="trasteroPickerList" class="trastero-picker-list"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" style="width:100%;" onclick="cerrarModales()">Listo / Cerrar</button>
       </div>
     </div>
   </div>
@@ -932,13 +1019,91 @@
       inputNombre.value = '';
       inputCant.value = '1';
 
-      await api('crear_compra', { nombre, categoria, cantidad });
+      const existente = listaCompra.find(c => !c.comprado && c.nombre.toLowerCase() === nombre.toLowerCase());
+      if (existente) {
+        await api('ajustar_compra', { id: existente.id, delta: cantidad });
+      } else {
+        await api('crear_compra', { nombre, categoria, cantidad });
+      }
       mostrarAviso(`🛒 Añadido a la compra: ${nombre} (x${cantidad})`, 'in');
       await cargarProductos();
     }
 
+    // --- MODAL ELEGIR PRODUCTOS DEL TRASTERO PARA LA COMPRA ---
+    function abrirModalElegirTrastero() {
+      pausaEscaneo = true;
+      document.getElementById('buscarTrasteroShopInput').value = '';
+      const fb = document.getElementById('modalTrasteroFeedback');
+      fb.style.display = 'none';
+      renderizarListaPickerTrastero();
+      document.getElementById('modalElegirTrastero').classList.add('open');
+    }
+
+    function renderizarListaPickerTrastero() {
+      const q = document.getElementById('buscarTrasteroShopInput').value.toLowerCase().trim();
+      const cont = document.getElementById('trasteroPickerList');
+
+      let lista = productos;
+      if (q) lista = lista.filter(p => p.nombre.toLowerCase().includes(q));
+
+      if (!lista.length) {
+        cont.innerHTML = `<div class="empty-msg" style="padding:18px;">No hay productos en el trastero que coincidan.</div>`;
+        return;
+      }
+
+      cont.innerHTML = lista.map(p => `
+        <div class="trastero-picker-item">
+          <div class="prod-info">
+            <div class="prod-title" style="font-size:0.98rem; margin-bottom:3px;">${escapeHtml(p.nombre)}</div>
+            <div class="badges">
+              <span class="badge">${escapeHtml(etiquetaCat(p.categoria || 'Comida'))}</span>
+              <span class="badge">En trastero: ${p.stock}</span>
+            </div>
+          </div>
+          <div class="picker-controls">
+            <button type="button" class="mini-qty-btn" onclick="cambiarCantPicker(${p.id}, -1)">−</button>
+            <input type="number" id="cantPicker_${p.id}" class="mini-qty-input" value="1" min="1" />
+            <button type="button" class="mini-qty-btn" onclick="cambiarCantPicker(${p.id}, 1)">+</button>
+            <button type="button" class="btn-send-shop" onclick="enviarTrasteroACompra(${p.id})">➕</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function cambiarCantPicker(prodId, delta) {
+      const input = document.getElementById('cantPicker_' + prodId);
+      if (!input) return;
+      const actual = parseInt(input.value, 10) || 1;
+      input.value = Math.max(1, actual + delta);
+    }
+
+    async function enviarTrasteroACompra(prodId) {
+      const p = productos.find(x => x.id === prodId);
+      if (!p) return;
+      const input = document.getElementById('cantPicker_' + prodId);
+      const cantidad = Math.max(1, parseInt(input ? input.value : '1', 10) || 1);
+
+      const existente = listaCompra.find(c => !c.comprado && c.nombre.toLowerCase() === p.nombre.toLowerCase());
+      if (existente) {
+        await api('ajustar_compra', { id: existente.id, delta: cantidad });
+      } else {
+        await api('crear_compra', {
+          nombre: p.nombre,
+          categoria: p.categoria || 'Comida',
+          cantidad
+        });
+      }
+
+      if (input) input.value = '1';
+      pitar('ok');
+      const fb = document.getElementById('modalTrasteroFeedback');
+      fb.textContent = `✅ Añadido: ${p.nombre} (+${cantidad} uds)`;
+      fb.style.display = 'block';
+      mostrarAviso(`🛒 Añadido desde trastero: ${p.nombre} (x${cantidad})`, 'in');
+      await cargarProductos();
+    }
+
     async function toggleCheckCompra(tipo, id, nuevoEstado) {
-      // Actualización visual instantánea antes de responder el servidor
       if (tipo === 'lista') {
         const item = listaCompra.find(x => x.id === id);
         if (item) item.comprado = nuevoEstado;
@@ -965,10 +1130,10 @@
     async function limpiarComprados() {
       const sueltosMarcados = listaCompra.filter(c => c.comprado);
       if (!sueltosMarcados.length) {
-        alert('Los productos del trastero desaparecerán de aquí cuando los piques al llegar a casa.');
+        alert('Los productos automáticos del trastero desaparecerán de aquí cuando los piques al llegar a casa.');
         return;
       }
-      if (!confirm(`¿Quitar de la lista los ${sueltosMarcados.length} producto(s) sueltos ya cogidos?`)) return;
+      if (!confirm(`¿Quitar de la lista los ${sueltosMarcados.length} producto(s) ya cogidos?`)) return;
       await api('eliminar_compra', { limpiar_comprados: true });
       mostrarAviso('🧹 Lista limpiada', 'in');
       await cargarProductos();
@@ -1210,7 +1375,6 @@
       const q = document.getElementById('searchInput').value.toLowerCase().trim();
       const bajoMinimoInv = productos.filter(p => p.stock < (p.stock_minimo ?? 1));
 
-      // Contador de "Para comprar": muestra lo que falta por coger (sin marcar)
       const pendientesCount =
         bajoMinimoInv.filter(p => !p.en_carro).length +
         listaCompra.filter(c => !c.comprado).length;
@@ -1292,7 +1456,6 @@
         return;
       }
 
-      // Separar pendientes (arriba) y cogidos en el carro (abajo)
       const pendientes = combinados.filter(i => !i.checked);
       const cogidos = combinados.filter(i => i.checked);
 
@@ -1309,7 +1472,7 @@
               <div class="badges">
                 <span class="badge">${escapeHtml(etiquetaCat(item.categoria))}</span>
                 ${esLista
-                  ? `<span class="badge shop-only">Solo compra</span>`
+                  ? `<span class="badge shop-only">Para comprar</span>`
                   : `<span class="badge warn">Trastero: quedan ${item.stockActual} (faltan ${item.faltan})</span>`
                 }
               </div>
