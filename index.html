@@ -305,6 +305,32 @@
     }
     .radio-tab.active { background: var(--blue); color: white; border-color: var(--blue); }
     .empty-msg { text-align: center; color: var(--muted); padding: 30px 10px; }
+
+    /* Lista de categorías personalizadas en modal */
+    .custom-cat-list {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--card-light);
+    }
+    .custom-cat-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0f172a;
+      padding: 9px 12px;
+      border-radius: 10px;
+      margin-bottom: 6px;
+      font-size: 0.92rem;
+    }
+    .btn-del-cat {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid var(--red);
+      color: #fca5a5;
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: 0.82rem;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -478,20 +504,23 @@
     </div>
   </div>
 
-  <!-- MODAL 4: NUEVA CATEGORÍA PERSONALIZADA -->
+  <!-- MODAL 4: GESTIONAR CATEGORÍAS (CREAR Y BORRAR) -->
   <div id="modalNuevaCat" class="modal-backdrop" style="z-index: 60;">
     <div class="modal">
-      <h2>🏷️ Nueva categoría</h2>
-      <p style="color:var(--muted); font-size:0.85rem; margin-bottom:12px;">Ponle el nombre que quieras (ej: Bebidas, Bebé, Desayuno, Bricolaje...).</p>
+      <h2>🏷️ Categorías personalizadas</h2>
+      <p style="color:var(--muted); font-size:0.85rem; margin-bottom:12px;">Crea una nueva (ej: Bebidas, Bebé, Desayuno...) o borra las que ya no uses.</p>
       <form onsubmit="guardarNuevaCategoria(event)">
-        <div class="form-group">
-          <input type="text" id="nuevaCatInput" placeholder="Nombre de la categoría..." required maxlength="25" />
-        </div>
-        <div class="modal-actions">
-          <button type="button" class="btn-secondary" onclick="cerrarModalCategoria()">Cancelar</button>
-          <button type="submit" class="btn-primary">Crear</button>
+        <div class="cat-select-row">
+          <input type="text" id="nuevaCatInput" placeholder="Nombre de la nueva categoría..." required maxlength="25" />
+          <button type="submit" class="btn-primary" style="flex:0 0 auto; padding:12px 16px;">Crear</button>
         </div>
       </form>
+
+      <div id="customCatListContainer" class="custom-cat-list"></div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" style="width:100%;" onclick="cerrarModalCategoria()">Cerrar</button>
+      </div>
     </div>
   </div>
 
@@ -535,6 +564,11 @@
       return Array.from(mapa.values());
     }
 
+    function obtenerCategoriasPersonalizadas() {
+      const baseLower = CATEGORIAS_BASE.map(c => c.toLowerCase());
+      return obtenerTodasCategorias().filter(c => !baseLower.includes(c.toLowerCase()));
+    }
+
     function etiquetaCat(cat) {
       return `${EMOJIS_CAT[cat] || '🏷️'} ${cat}`;
     }
@@ -549,7 +583,7 @@
         const activa = filtroCat.toLowerCase() === cat.toLowerCase() ? 'active' : '';
         htmlChips += `<button class="chip ${activa}" onclick="setFiltroCat('${escapeJs(cat)}')">${escapeHtml(etiquetaCat(cat))}</button>`;
       });
-      htmlChips += `<button class="chip add-cat" onclick="abrirModalCategoria(null)">➕ Categoría</button>`;
+      htmlChips += `<button class="chip add-cat" onclick="abrirModalCategoria(null)">🏷️ Categorías</button>`;
       filtersEl.innerHTML = htmlChips;
 
       // 2. Desplegables dentro de los modales
@@ -562,11 +596,34 @@
         ).join('');
         if (previo && todas.includes(previo)) sel.value = previo;
       });
+
+      // 3. Lista de categorías personalizadas dentro del modal (con botón borrar)
+      renderizarListaBorrarCategorias();
+    }
+
+    function renderizarListaBorrarCategorias() {
+      const cont = document.getElementById('customCatListContainer');
+      if (!cont) return;
+      const personalizadas = obtenerCategoriasPersonalizadas();
+      if (!personalizadas.length) {
+        cont.innerHTML = `<p style="color:var(--muted); font-size:0.82rem; text-align:center;">Aún no has creado categorías propias.</p>`;
+        return;
+      }
+      cont.innerHTML = `
+        <p style="color:var(--muted); font-size:0.8rem; margin-bottom:8px;">Tus categorías creadas:</p>
+        ${personalizadas.map(cat => `
+          <div class="custom-cat-item">
+            <span>🏷️ ${escapeHtml(cat)}</span>
+            <button type="button" class="btn-del-cat" onclick="borrarCategoria('${escapeJs(cat)}')">🗑️ Borrar</button>
+          </div>
+        `).join('')}
+      `;
     }
 
     function abrirModalCategoria(targetSelectId) {
       targetSelectCategoria = targetSelectId;
       document.getElementById('nuevaCatInput').value = '';
+      renderizarListaBorrarCategorias();
       document.getElementById('modalNuevaCat').classList.add('open');
       setTimeout(() => document.getElementById('nuevaCatInput').focus(), 100);
     }
@@ -586,12 +643,52 @@
         localStorage.setItem('trastero_cats', JSON.stringify(categoriasGuardadas));
       }
 
-      cerrarModalCategoria();
+      document.getElementById('nuevaCatInput').value = '';
       renderizarCategoriasUI(targetSelectCategoria, nombre);
 
-      if (!targetSelectCategoria) {
+      if (targetSelectCategoria) {
+        cerrarModalCategoria();
+      } else {
         mostrarAviso(`🏷️ Categoría "${nombre}" creada`, 'in');
       }
+    }
+
+    async function borrarCategoria(cat) {
+      const afectados = productos.filter(p => (p.categoria || '').toLowerCase() === cat.toLowerCase());
+      const avisoExtra = afectados.length
+        ? `\n\nHay ${afectados.length} producto(s) en esta categoría que pasarán automáticamente a "Otros".`
+        : '';
+
+      if (!confirm(`¿Seguro que quieres borrar la categoría "${cat}"?${avisoExtra}`)) return;
+
+      // 1. Quitar de localStorage
+      categoriasGuardadas = categoriasGuardadas.filter(c => c.toLowerCase() !== cat.toLowerCase());
+      localStorage.setItem('trastero_cats', JSON.stringify(categoriasGuardadas));
+
+      // 2. Si estaba seleccionado ese filtro, volver a Todos
+      if (filtroCat.toLowerCase() === cat.toLowerCase()) {
+        filtroCat = 'Todos';
+      }
+
+      // 3. Reasignar productos afectados a "Otros" en Supabase
+      for (const p of afectados) {
+        await api('editar_producto', {
+          id: p.id,
+          nombre: p.nombre,
+          categoria: 'Otros',
+          stock: p.stock,
+          stock_minimo: p.stock_minimo ?? 1,
+          caducidad: p.caducidad || null
+        });
+      }
+
+      if (afectados.length) {
+        await cargarProductos();
+      } else {
+        renderizarCategoriasUI();
+        renderizarLista();
+      }
+      mostrarAviso(`🗑️ Categoría "${cat}" eliminada`, 'err');
     }
 
     function pitar(tipo) {
