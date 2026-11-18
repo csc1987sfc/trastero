@@ -26,6 +26,7 @@
       --red-dark: #dc2626;
       --blue: #3b82f6;
       --orange: #f59e0b;
+      --purple: #8b5cf6;
       --radius: 14px;
     }
 
@@ -185,7 +186,38 @@
     }
     .tab-btn.active { background: var(--text); color: var(--bg); }
 
-    /* Caja rápida para añadir directamente a la lista de la compra */
+    /* Selector de Supermercados */
+    .super-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .super-chip {
+      padding: 8px 13px;
+      border-radius: 12px;
+      border: 1px solid var(--card-light);
+      background: var(--card);
+      color: var(--muted);
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .super-chip.active {
+      background: var(--green);
+      color: #022c22;
+      border-color: var(--green);
+    }
+    .super-chip.add-super {
+      border: 1px dashed var(--green);
+      color: #6ee7b7;
+      background: rgba(16, 185, 129, 0.1);
+    }
+
+    /* Caja de lista del supermercado activo */
     .quick-shop-box {
       background: var(--card);
       border: 1px solid var(--blue);
@@ -194,15 +226,48 @@
       margin-bottom: 12px;
       display: none;
     }
-    .quick-shop-title {
-      font-size: 0.8rem;
-      color: #93c5fd;
-      margin-bottom: 8px;
-      font-weight: 600;
+    .super-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--card-light);
     }
+    .super-title {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .super-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .btn-empty-list {
+      background: rgba(245, 158, 11, 0.16);
+      border: 1px solid var(--orange);
+      color: #fde68a;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-del-super {
+      background: rgba(239, 68, 68, 0.16);
+      border: 1px solid var(--red);
+      color: #fca5a5;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
     .quick-shop-row {
       display: grid;
-      grid-template-columns: 1fr 72px auto;
+      grid-template-columns: 1fr 70px auto;
       gap: 6px;
     }
     .btn-add-shop {
@@ -215,21 +280,39 @@
       font-size: 0.95rem;
       cursor: pointer;
     }
-    .btn-pick-trastero {
-      width: 100%;
+    .shop-pickers-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
       margin-top: 10px;
-      padding: 11px;
+    }
+    .btn-pick-hab {
+      padding: 10px 8px;
+      border-radius: 10px;
+      border: 1px solid var(--orange);
+      background: rgba(245, 158, 11, 0.14);
+      color: #fde68a;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+    .btn-pick-trastero {
+      padding: 10px 8px;
       border-radius: 10px;
       border: 1px solid var(--green);
       background: rgba(16, 185, 129, 0.14);
       color: #6ee7b7;
       font-weight: 700;
-      font-size: 0.92rem;
+      font-size: 0.85rem;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 5px;
     }
 
     .filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 14px; }
@@ -431,7 +514,7 @@
       cursor: pointer;
     }
 
-    /* Lista de productos del trastero dentro del modal de compra */
+    /* Listas dentro de modales (Trastero y Habituales) */
     .trastero-picker-list {
       display: flex;
       flex-direction: column;
@@ -485,6 +568,14 @@
       font-size: 0.85rem;
       cursor: pointer;
     }
+    .btn-del-hab {
+      background: transparent;
+      border: none;
+      color: #fca5a5;
+      font-size: 0.95rem;
+      padding: 4px 6px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -527,17 +618,32 @@
       <button id="tabShop" class="tab-btn" onclick="setTab('comprar')">🛒 Para comprar (<span id="countShop">0</span>)</button>
     </div>
 
-    <!-- Cuadro visible solo en "Para comprar" -->
+    <!-- Sección exclusiva de "Para comprar": Selector de supermercados + Añadir productos -->
     <div id="quickShopBox" class="quick-shop-box">
-      <div class="quick-shop-title">🛒 Apuntar a mano (no entra en el trastero)</div>
+      <div id="superBar" class="super-bar"></div>
+
+      <div class="super-header-row">
+        <div class="super-title" id="activeSuperTitle">🏠 Lista: General</div>
+        <div class="super-actions">
+          <button type="button" class="btn-empty-list" onclick="vaciarListaActual()" title="Vaciar todos los productos de esta lista">🧹 Vaciar lista</button>
+          <button type="button" id="btnDelSuper" class="btn-del-super" style="display:none;" onclick="eliminarSupermercadoActual()" title="Borrar este supermercado">🗑️</button>
+        </div>
+      </div>
+
       <form class="quick-shop-row" onsubmit="agregarACompraRapido(event)">
-        <input type="text" id="shopNombreInput" placeholder="Ej: Pan, Fruta, Pollo..." required />
+        <input type="text" id="shopNombreInput" placeholder="Añadir producto a esta lista..." required />
         <input type="number" id="shopCantInput" value="1" min="1" required title="Cantidad" />
         <button type="submit" class="btn-add-shop">➕</button>
       </form>
-      <button type="button" class="btn-pick-trastero" onclick="abrirModalElegirTrastero()">
-        📦 Elegir productos del trastero
-      </button>
+
+      <div class="shop-pickers-grid">
+        <button type="button" class="btn-pick-hab" onclick="abrirModalHabituales()">
+          ⭐ Habituales
+        </button>
+        <button type="button" class="btn-pick-trastero" onclick="abrirModalElegirTrastero()">
+          📦 Del trastero
+        </button>
+      </div>
     </div>
 
     <input type="search" id="searchInput" placeholder="Buscar producto..." oninput="renderizarLista()" />
@@ -694,7 +800,7 @@
   <!-- MODAL 5: ELEGIR PRODUCTOS DEL TRASTERO PARA LA COMPRA -->
   <div id="modalElegirTrastero" class="modal-backdrop">
     <div class="modal">
-      <h2>📦 Añadir del trastero a la compra</h2>
+      <h2 id="tituloModalTrastero">📦 Añadir del trastero</h2>
       <p style="color:var(--muted); font-size:0.83rem; margin-bottom:10px;">Elige la cantidad que quieres comprar y pulsa <strong>➕</strong>.</p>
       <input type="search" id="buscarTrasteroShopInput" placeholder="Filtrar productos del trastero..." oninput="renderizarListaPickerTrastero()" />
       <div id="modalTrasteroFeedback" style="color:#6ee7b7; font-size:0.85rem; font-weight:700; margin-top:8px; display:none;"></div>
@@ -705,11 +811,39 @@
     </div>
   </div>
 
+  <!-- MODAL 6: NUEVO SUPERMERCADO -->
+  <div id="modalNuevoSuper" class="modal-backdrop">
+    <div class="modal">
+      <h2>🛒 Nuevo supermercado</h2>
+      <p style="color:var(--muted); font-size:0.85rem; margin-bottom:12px;">Crea una lista independiente para este supermercado (ej: Mercadona, Lidl, Carrefour, Frutería...).</p>
+      <form onsubmit="guardarNuevoSupermercado(event)">
+        <div class="form-group">
+          <input type="text" id="nuevoSuperInput" placeholder="Nombre del supermercado..." required maxlength="30" />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" onclick="cerrarModales()">Cancelar</button>
+          <button type="submit" class="btn-primary">Crear lista</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 7: PRODUCTOS HABITUALES DE ESE SUPERMERCADO -->
+  <div id="modalHabituales" class="modal-backdrop">
+    <div class="modal">
+      <h2 id="tituloModalHabituales">⭐ Habituales</h2>
+      <p style="color:var(--muted); font-size:0.83rem; margin-bottom:10px;">Artículos que sueles comprar aquí. Elige cantidad y pulsa <strong>➕</strong>.</p>
+      <input type="search" id="buscarHabitualesInput" placeholder="Buscar en habituales..." oninput="renderizarListaHabituales()" />
+      <div id="modalHabFeedback" style="color:#fde68a; font-size:0.85rem; font-weight:700; margin-top:8px; display:none;"></div>
+      <div id="habitualesPickerList" class="trastero-picker-list"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" style="width:100%;" onclick="cerrarModales()">Listo / Cerrar</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    // =========================================================================
-    // PEGA AQUÍ DENTRO DE LAS COMILLAS LA ENDPOINT URL DE TU EDGE FUNCTION:
     const EDGE_FUNCTION_URL = 'https://knuxhtfqxnvlfrtkmdwc.supabase.co/functions/v1/trastero-api';
-    // =========================================================================
 
     const CATEGORIAS_BASE = ['Comida', 'Limpieza', 'Otros'];
     const EMOJIS_CAT = { 'Comida': '🥫', 'Limpieza': '🧼', 'Otros': '🧻' };
@@ -721,8 +855,12 @@
     let modo = 'meter';
     let tabActual = 'inventario';
     let filtroCat = 'Todos';
+    let supermercadoActivo = null; // null = General, o ID numérico del supermercado
+
     let productos = [];
     let listaCompra = [];
+    let supermercados = [];
+    let habituales = [];
     let historial = [];
 
     let html5QrCode = null;
@@ -730,6 +868,12 @@
     let pausaEscaneo = false;
     let ultimoCodigoLeido = '';
     let tiempoUltimaLectura = 0;
+
+    function nombreSuperActual() {
+      if (supermercadoActivo === null) return 'General';
+      const s = supermercados.find(x => x.id === supermercadoActivo);
+      return s ? s.nombre : 'General';
+    }
 
     function obtenerTodasCategorias() {
       const mapa = new Map();
@@ -884,10 +1028,6 @@
     }
 
     async function api(action, payload = {}) {
-      if (!EDGE_FUNCTION_URL.startsWith('http')) {
-        alert('Falta configurar la URL de tu Edge Function en el archivo index.html.');
-        throw new Error('URL no configurada');
-      }
       const res = await fetch(EDGE_FUNCTION_URL, {
         method: 'POST',
         headers: {
@@ -953,6 +1093,7 @@
       document.getElementById('tabShop').className = 'tab-btn' + (tab === 'comprar' ? ' active' : '');
       document.getElementById('quickShopBox').style.display = tab === 'comprar' ? 'block' : 'none';
       document.getElementById('fabBtn').style.display = tab === 'inventario' ? 'block' : 'none';
+      renderizarSuperBar();
       renderizarLista();
     }
 
@@ -999,14 +1140,117 @@
         const res = await api('listar');
         productos = res.productos || [];
         listaCompra = res.lista_compra || [];
+        supermercados = res.supermercados || [];
+        habituales = res.habituales || [];
+
+        if (supermercadoActivo !== null && !supermercados.some(s => s.id === supermercadoActivo)) {
+          supermercadoActivo = null;
+        }
+
         renderizarCategoriasUI();
+        renderizarSuperBar();
         renderizarLista();
       } catch (err) {
         console.error(err);
       }
     }
 
-    // --- FUNCIONES DE LA LISTA DE LA COMPRA ---
+    // --- GESTIÓN DE SUPERMERCADOS ---
+    function seleccionarSupermercado(id) {
+      supermercadoActivo = id;
+      renderizarSuperBar();
+      renderizarLista();
+    }
+
+    function renderizarSuperBar() {
+      const bar = document.getElementById('superBar');
+      if (!bar) return;
+
+      const bajoMinimoInv = productos.filter(p => p.stock < (p.stock_minimo ?? 1) && !p.en_carro).length;
+      const pendGeneral = bajoMinimoInv + listaCompra.filter(c => c.supermercado_id === null && !c.comprado).length;
+
+      let html = `
+        <button type="button" class="super-chip ${supermercadoActivo === null ? 'active' : ''}" onclick="seleccionarSupermercado(null)">
+          🏠 General (${pendGeneral})
+        </button>
+      `;
+
+      supermercados.forEach(s => {
+        const pendSuper = listaCompra.filter(c => c.supermercado_id === s.id && !c.comprado).length;
+        html += `
+          <button type="button" class="super-chip ${supermercadoActivo === s.id ? 'active' : ''}" onclick="seleccionarSupermercado(${s.id})">
+            🛒 ${escapeHtml(s.nombre)} (${pendSuper})
+          </button>
+        `;
+      });
+
+      html += `<button type="button" class="super-chip add-super" onclick="abrirModalNuevoSuper()">➕ Súper</button>`;
+      bar.innerHTML = html;
+
+      // Actualizar cabecera y botones del supermercado activo
+      const titleEl = document.getElementById('activeSuperTitle');
+      const delBtn = document.getElementById('btnDelSuper');
+      const inputShop = document.getElementById('shopNombreInput');
+
+      if (supermercadoActivo === null) {
+        titleEl.textContent = '🏠 Lista: General';
+        delBtn.style.display = 'none';
+        inputShop.placeholder = 'Añadir producto a General...';
+      } else {
+        const nombre = nombreSuperActual();
+        titleEl.textContent = `🛒 Lista: ${nombre}`;
+        delBtn.style.display = 'inline-block';
+        inputShop.placeholder = `Añadir producto a ${nombre}...`;
+      }
+    }
+
+    function abrirModalNuevoSuper() {
+      pausaEscaneo = true;
+      document.getElementById('nuevoSuperInput').value = '';
+      document.getElementById('modalNuevoSuper').classList.add('open');
+      setTimeout(() => document.getElementById('nuevoSuperInput').focus(), 100);
+    }
+
+    async function guardarNuevoSupermercado(e) {
+      e.preventDefault();
+      const raw = document.getElementById('nuevoSuperInput').value.trim();
+      if (!raw) return;
+      const nombre = raw.charAt(0).toUpperCase() + raw.slice(1);
+      const res = await api('crear_supermercado', { nombre });
+      cerrarModales();
+      if (res.supermercado) {
+        supermercadoActivo = res.supermercado.id;
+      }
+      mostrarAviso(`🛒 Supermercado "${nombre}" listo`, 'in');
+      await cargarProductos();
+    }
+
+    async function eliminarSupermercadoActual() {
+      if (supermercadoActivo === null) return;
+      const nombre = nombreSuperActual();
+      if (!confirm(`¿Seguro que quieres borrar la lista de "${nombre}" junto con sus productos habituales guardados?`)) return;
+      await api('eliminar_supermercado', { id: supermercadoActivo });
+      supermercadoActivo = null;
+      mostrarAviso(`🗑️ Supermercado "${nombre}" eliminado`, 'err');
+      await cargarProductos();
+    }
+
+    async function vaciarListaActual() {
+      const nombre = nombreSuperActual();
+      const itemsEnLista = listaCompra.filter(c =>
+        supermercadoActivo === null ? c.supermercado_id === null : c.supermercado_id === supermercadoActivo
+      );
+      if (!itemsEnLista.length) {
+        alert(`La lista de ${nombre} ya está vacía.`);
+        return;
+      }
+      if (!confirm(`¿Vaciar los ${itemsEnLista.length} producto(s) de la lista de "${nombre}"?\n\n(Los productos habituales seguirán guardados para tu próxima compra).`)) return;
+      await api('vaciar_lista_supermercado', { supermercado_id: supermercadoActivo });
+      mostrarAviso(`🧹 Lista de ${nombre} vaciada`, 'in');
+      await cargarProductos();
+    }
+
+    // --- AÑADIR A LA COMPRA + HABITUALES ---
     async function agregarACompraRapido(e) {
       e.preventDefault();
       const inputNombre = document.getElementById('shopNombreInput');
@@ -1019,19 +1263,98 @@
       inputNombre.value = '';
       inputCant.value = '1';
 
-      const existente = listaCompra.find(c => !c.comprado && c.nombre.toLowerCase() === nombre.toLowerCase());
-      if (existente) {
-        await api('ajustar_compra', { id: existente.id, delta: cantidad });
-      } else {
-        await api('crear_compra', { nombre, categoria, cantidad });
-      }
-      mostrarAviso(`🛒 Añadido a la compra: ${nombre} (x${cantidad})`, 'in');
+      await api('crear_compra', {
+        nombre,
+        categoria,
+        cantidad,
+        supermercado_id: supermercadoActivo
+      });
+      mostrarAviso(`🛒 Añadido a ${nombreSuperActual()}: ${nombre} (x${cantidad})`, 'in');
       await cargarProductos();
     }
 
-    // --- MODAL ELEGIR PRODUCTOS DEL TRASTERO PARA LA COMPRA ---
+    // --- MODAL HABITUALES DEL SUPERMERCADO ---
+    function abrirModalHabituales() {
+      pausaEscaneo = true;
+      document.getElementById('tituloModalHabituales').textContent = `⭐ Habituales de ${nombreSuperActual()}`;
+      document.getElementById('buscarHabitualesInput').value = '';
+      const fb = document.getElementById('modalHabFeedback');
+      fb.style.display = 'none';
+      renderizarListaHabituales();
+      document.getElementById('modalHabituales').classList.add('open');
+    }
+
+    function renderizarListaHabituales() {
+      const q = document.getElementById('buscarHabitualesInput').value.toLowerCase().trim();
+      const cont = document.getElementById('habitualesPickerList');
+
+      let lista = habituales.filter(h =>
+        supermercadoActivo === null ? h.supermercado_id === null : h.supermercado_id === supermercadoActivo
+      );
+      if (q) lista = lista.filter(h => h.nombre.toLowerCase().includes(q));
+
+      if (!lista.length) {
+        cont.innerHTML = `<div class="empty-msg" style="padding:18px;">Aún no tienes productos habituales guardados en ${escapeHtml(nombreSuperActual())}.<br><br>Se guardan solos cada vez que añades algo a esta lista.</div>`;
+        return;
+      }
+
+      cont.innerHTML = lista.map(h => `
+        <div class="trastero-picker-item">
+          <div class="prod-info">
+            <div class="prod-title" style="font-size:0.98rem; margin-bottom:3px;">${escapeHtml(h.nombre)}</div>
+            <div class="badges">
+              <span class="badge">${escapeHtml(etiquetaCat(h.categoria || 'Comida'))}</span>
+            </div>
+          </div>
+          <div class="picker-controls">
+            <button type="button" class="mini-qty-btn" onclick="cambiarCantHab(${h.id}, -1)">−</button>
+            <input type="number" id="cantHab_${h.id}" class="mini-qty-input" value="1" min="1" />
+            <button type="button" class="mini-qty-btn" onclick="cambiarCantHab(${h.id}, 1)">+</button>
+            <button type="button" class="btn-send-shop" onclick="enviarHabitualACompra(${h.id})">➕</button>
+            <button type="button" class="btn-del-hab" onclick="borrarHabitual(${h.id})" title="Quitar de habituales">🗑️</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function cambiarCantHab(habId, delta) {
+      const input = document.getElementById('cantHab_' + habId);
+      if (!input) return;
+      const actual = parseInt(input.value, 10) || 1;
+      input.value = Math.max(1, actual + delta);
+    }
+
+    async function enviarHabitualACompra(habId) {
+      const h = habituales.find(x => x.id === habId);
+      if (!h) return;
+      const input = document.getElementById('cantHab_' + habId);
+      const cantidad = Math.max(1, parseInt(input ? input.value : '1', 10) || 1);
+
+      await api('crear_compra', {
+        nombre: h.nombre,
+        categoria: h.categoria || 'Comida',
+        cantidad,
+        supermercado_id: supermercadoActivo
+      });
+
+      if (input) input.value = '1';
+      pitar('ok');
+      const fb = document.getElementById('modalHabFeedback');
+      fb.textContent = `✅ Añadido a ${nombreSuperActual()}: ${h.nombre} (+${cantidad})`;
+      fb.style.display = 'block';
+      await cargarProductos();
+    }
+
+    async function borrarHabitual(habId) {
+      await api('eliminar_habitual', { id: habId });
+      habituales = habituales.filter(h => h.id !== habId);
+      renderizarListaHabituales();
+    }
+
+    // --- MODAL ELEGIR PRODUCTOS DEL TRASTERO ---
     function abrirModalElegirTrastero() {
       pausaEscaneo = true;
+      document.getElementById('tituloModalTrastero').textContent = `📦 Añadir del trastero a ${nombreSuperActual()}`;
       document.getElementById('buscarTrasteroShopInput').value = '';
       const fb = document.getElementById('modalTrasteroFeedback');
       fb.style.display = 'none';
@@ -1083,23 +1406,18 @@
       const input = document.getElementById('cantPicker_' + prodId);
       const cantidad = Math.max(1, parseInt(input ? input.value : '1', 10) || 1);
 
-      const existente = listaCompra.find(c => !c.comprado && c.nombre.toLowerCase() === p.nombre.toLowerCase());
-      if (existente) {
-        await api('ajustar_compra', { id: existente.id, delta: cantidad });
-      } else {
-        await api('crear_compra', {
-          nombre: p.nombre,
-          categoria: p.categoria || 'Comida',
-          cantidad
-        });
-      }
+      await api('crear_compra', {
+        nombre: p.nombre,
+        categoria: p.categoria || 'Comida',
+        cantidad,
+        supermercado_id: supermercadoActivo
+      });
 
       if (input) input.value = '1';
       pitar('ok');
       const fb = document.getElementById('modalTrasteroFeedback');
-      fb.textContent = `✅ Añadido: ${p.nombre} (+${cantidad} uds)`;
+      fb.textContent = `✅ Añadido a ${nombreSuperActual()}: ${p.nombre} (+${cantidad})`;
       fb.style.display = 'block';
-      mostrarAviso(`🛒 Añadido desde trastero: ${p.nombre} (x${cantidad})`, 'in');
       await cargarProductos();
     }
 
@@ -1111,6 +1429,7 @@
         const prod = productos.find(x => x.id === id);
         if (prod) prod.en_carro = nuevoEstado;
       }
+      renderizarSuperBar();
       renderizarLista();
 
       await api('toggle_compra', { tipo, id, checked: nuevoEstado });
@@ -1128,14 +1447,16 @@
     }
 
     async function limpiarComprados() {
-      const sueltosMarcados = listaCompra.filter(c => c.comprado);
+      const sueltosMarcados = listaCompra.filter(c =>
+        c.comprado && (supermercadoActivo === null ? c.supermercado_id === null : c.supermercado_id === supermercadoActivo)
+      );
       if (!sueltosMarcados.length) {
         alert('Los productos automáticos del trastero desaparecerán de aquí cuando los piques al llegar a casa.');
         return;
       }
-      if (!confirm(`¿Quitar de la lista los ${sueltosMarcados.length} producto(s) ya cogidos?`)) return;
-      await api('eliminar_compra', { limpiar_comprados: true });
-      mostrarAviso('🧹 Lista limpiada', 'in');
+      if (!confirm(`¿Quitar de esta lista los ${sueltosMarcados.length} producto(s) ya cogidos?`)) return;
+      await api('eliminar_compra', { limpiar_comprados: true, supermercado_id: supermercadoActivo });
+      mostrarAviso('🧹 Cogidos eliminados', 'in');
       await cargarProductos();
     }
 
@@ -1423,9 +1744,13 @@
         return;
       }
 
-      // --- VISTA 2: LISTA DE LA COMPRA CON CHECK Y ORDEN AUTOMÁTICO ---
+      // --- VISTA 2: LISTA DEL SUPERMERCADO ACTIVO ---
+      const itemsDelSuper = listaCompra.filter(c =>
+        supermercadoActivo === null ? c.supermercado_id === null : c.supermercado_id === supermercadoActivo
+      );
+
       let combinados = [
-        ...listaCompra.map(c => ({
+        ...itemsDelSuper.map(c => ({
           tipo: 'lista',
           id: c.id,
           nombre: c.nombre,
@@ -1433,7 +1758,7 @@
           cantidad: c.cantidad || 1,
           checked: Boolean(c.comprado)
         })),
-        ...bajoMinimoInv.map(p => ({
+        ...(supermercadoActivo === null ? bajoMinimoInv.map(p => ({
           tipo: 'inventario',
           id: p.id,
           nombre: p.nombre,
@@ -1441,7 +1766,7 @@
           faltan: Math.max(1, (p.stock_minimo ?? 1) - p.stock),
           stockActual: p.stock,
           checked: Boolean(p.en_carro)
-        }))
+        })) : [])
       ];
 
       if (filtroCat !== 'Todos') {
@@ -1452,7 +1777,7 @@
       }
 
       if (!combinados.length) {
-        container.innerHTML = `<div class="empty-msg">🎉 ¡Lista vacía! No te falta nada por comprar.</div>`;
+        container.innerHTML = `<div class="empty-msg">🎉 ¡La lista de <strong>${escapeHtml(nombreSuperActual())}</strong> está vacía!</div>`;
         return;
       }
 
@@ -1472,7 +1797,7 @@
               <div class="badges">
                 <span class="badge">${escapeHtml(etiquetaCat(item.categoria))}</span>
                 ${esLista
-                  ? `<span class="badge shop-only">Para comprar</span>`
+                  ? `<span class="badge shop-only">${escapeHtml(nombreSuperActual())}</span>`
                   : `<span class="badge warn">Trastero: quedan ${item.stockActual} (faltan ${item.faltan})</span>`
                 }
               </div>
