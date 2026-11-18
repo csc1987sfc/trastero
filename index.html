@@ -185,7 +185,7 @@
     }
     .tab-btn.active { background: var(--text); color: var(--bg); }
 
-    .filters { display: flex; gap: 6px; overflow-x: auto; margin: 10px 0 14px; padding-bottom: 4px; }
+    .filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 14px; }
     .chip {
       padding: 7px 14px;
       border-radius: 20px;
@@ -197,6 +197,7 @@
       cursor: pointer;
     }
     .chip.active { background: var(--blue); color: white; border-color: var(--blue); }
+    .chip.add-cat { border: 1px dashed var(--blue); color: #93c5fd; background: rgba(59, 130, 246, 0.1); font-weight: 600; }
 
     .product-list { display: flex; flex-direction: column; gap: 10px; }
     .product-card {
@@ -272,6 +273,18 @@
     .modal h2 { font-size: 1.2rem; margin-bottom: 12px; }
     .form-group { margin-bottom: 12px; }
     .form-group label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 5px; }
+    .cat-select-row { display: flex; gap: 6px; }
+    .btn-add-cat-inline {
+      background: var(--card-light);
+      border: 1px solid var(--blue);
+      color: #93c5fd;
+      border-radius: 10px;
+      padding: 0 13px;
+      font-size: 1.2rem;
+      font-weight: 800;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
     .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
     .btn-primary {
       flex: 1; padding: 13px; border-radius: 12px; border: none;
@@ -335,12 +348,7 @@
     </div>
 
     <input type="search" id="searchInput" placeholder="Buscar producto..." oninput="renderizarLista()" />
-    <div class="filters">
-      <button class="chip active" onclick="setFiltroCat('Todos', this)">Todos</button>
-      <button class="chip" onclick="setFiltroCat('Comida', this)">🥫 Comida</button>
-      <button class="chip" onclick="setFiltroCat('Limpieza', this)">🧼 Limpieza</button>
-      <button class="chip" onclick="setFiltroCat('Otros', this)">🧻 Otros</button>
-    </div>
+    <div id="filtersContainer" class="filters"></div>
 
     <div id="productList" class="product-list">
       <div class="empty-msg">Cargando inventario...</div>
@@ -383,11 +391,10 @@
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
           <div class="form-group">
             <label>Categoría</label>
-            <select id="ncCategoria">
-              <option value="Comida">Comida</option>
-              <option value="Limpieza">Limpieza</option>
-              <option value="Otros">Otros</option>
-            </select>
+            <div class="cat-select-row">
+              <select id="ncCategoria"></select>
+              <button type="button" class="btn-add-cat-inline" onclick="abrirModalCategoria('ncCategoria')" title="Nueva categoría">+</button>
+            </div>
           </div>
           <div class="form-group">
             <label>Unidades de este código</label>
@@ -441,11 +448,10 @@
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
           <div class="form-group">
             <label>Categoría</label>
-            <select id="mpCategoria">
-              <option value="Comida">Comida</option>
-              <option value="Limpieza">Limpieza</option>
-              <option value="Otros">Otros</option>
-            </select>
+            <div class="cat-select-row">
+              <select id="mpCategoria"></select>
+              <button type="button" class="btn-add-cat-inline" onclick="abrirModalCategoria('mpCategoria')" title="Nueva categoría">+</button>
+            </div>
           </div>
           <div class="form-group">
             <label>Cantidad actual en trastero</label>
@@ -472,13 +478,36 @@
     </div>
   </div>
 
+  <!-- MODAL 4: NUEVA CATEGORÍA PERSONALIZADA -->
+  <div id="modalNuevaCat" class="modal-backdrop" style="z-index: 60;">
+    <div class="modal">
+      <h2>🏷️ Nueva categoría</h2>
+      <p style="color:var(--muted); font-size:0.85rem; margin-bottom:12px;">Ponle el nombre que quieras (ej: Bebidas, Bebé, Desayuno, Bricolaje...).</p>
+      <form onsubmit="guardarNuevaCategoria(event)">
+        <div class="form-group">
+          <input type="text" id="nuevaCatInput" placeholder="Nombre de la categoría..." required maxlength="25" />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" onclick="cerrarModalCategoria()">Cancelar</button>
+          <button type="submit" class="btn-primary">Crear</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     // =========================================================================
     // PEGA AQUÍ DENTRO DE LAS COMILLAS LA ENDPOINT URL DE TU EDGE FUNCTION:
     const EDGE_FUNCTION_URL = 'https://knuxhtfqxnvlfrtkmdwc.supabase.co/functions/v1/trastero-api';
     // =========================================================================
 
+    const CATEGORIAS_BASE = ['Comida', 'Limpieza', 'Otros'];
+    const EMOJIS_CAT = { 'Comida': '🥫', 'Limpieza': '🧼', 'Otros': '🧻' };
+
     let appPin = localStorage.getItem('trastero_pin') || '';
+    let categoriasGuardadas = JSON.parse(localStorage.getItem('trastero_cats') || '[]');
+    let targetSelectCategoria = null;
+
     let modo = 'meter';
     let tabActual = 'inventario';
     let filtroCat = 'Todos';
@@ -490,6 +519,80 @@
     let pausaEscaneo = false;
     let ultimoCodigoLeido = '';
     let tiempoUltimaLectura = 0;
+
+    function obtenerTodasCategorias() {
+      const mapa = new Map();
+      const registrar = (nombre) => {
+        if (!nombre) return;
+        const limpio = String(nombre).trim();
+        if (!limpio) return;
+        const clave = limpio.toLowerCase();
+        if (!mapa.has(clave)) mapa.set(clave, limpio);
+      };
+      CATEGORIAS_BASE.forEach(registrar);
+      categoriasGuardadas.forEach(registrar);
+      productos.forEach(p => registrar(p.categoria));
+      return Array.from(mapa.values());
+    }
+
+    function etiquetaCat(cat) {
+      return `${EMOJIS_CAT[cat] || '🏷️'} ${cat}`;
+    }
+
+    function renderizarCategoriasUI(selectIdForzar = null, valorForzar = null) {
+      const todas = obtenerTodasCategorias();
+
+      // 1. Chips de filtro en la pantalla principal
+      const filtersEl = document.getElementById('filtersContainer');
+      let htmlChips = `<button class="chip ${filtroCat === 'Todos' ? 'active' : ''}" onclick="setFiltroCat('Todos')">Todos</button>`;
+      todas.forEach(cat => {
+        const activa = filtroCat.toLowerCase() === cat.toLowerCase() ? 'active' : '';
+        htmlChips += `<button class="chip ${activa}" onclick="setFiltroCat('${escapeJs(cat)}')">${escapeHtml(etiquetaCat(cat))}</button>`;
+      });
+      htmlChips += `<button class="chip add-cat" onclick="abrirModalCategoria(null)">➕ Categoría</button>`;
+      filtersEl.innerHTML = htmlChips;
+
+      // 2. Desplegables dentro de los modales
+      ['ncCategoria', 'mpCategoria'].forEach(selId => {
+        const sel = document.getElementById(selId);
+        if (!sel) return;
+        const previo = (selectIdForzar === selId && valorForzar) ? valorForzar : sel.value;
+        sel.innerHTML = todas.map(cat =>
+          `<option value="${escapeHtml(cat)}">${escapeHtml(etiquetaCat(cat))}</option>`
+        ).join('');
+        if (previo && todas.includes(previo)) sel.value = previo;
+      });
+    }
+
+    function abrirModalCategoria(targetSelectId) {
+      targetSelectCategoria = targetSelectId;
+      document.getElementById('nuevaCatInput').value = '';
+      document.getElementById('modalNuevaCat').classList.add('open');
+      setTimeout(() => document.getElementById('nuevaCatInput').focus(), 100);
+    }
+
+    function cerrarModalCategoria() {
+      document.getElementById('modalNuevaCat').classList.remove('open');
+    }
+
+    function guardarNuevaCategoria(e) {
+      e.preventDefault();
+      const raw = document.getElementById('nuevaCatInput').value.trim();
+      if (!raw) return;
+      const nombre = raw.charAt(0).toUpperCase() + raw.slice(1);
+
+      if (!categoriasGuardadas.some(c => c.toLowerCase() === nombre.toLowerCase())) {
+        categoriasGuardadas.push(nombre);
+        localStorage.setItem('trastero_cats', JSON.stringify(categoriasGuardadas));
+      }
+
+      cerrarModalCategoria();
+      renderizarCategoriasUI(targetSelectCategoria, nombre);
+
+      if (!targetSelectCategoria) {
+        mostrarAviso(`🏷️ Categoría "${nombre}" creada`, 'in');
+      }
+    }
 
     function pitar(tipo) {
       try {
@@ -531,6 +634,7 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+      renderizarCategoriasUI();
       if (!appPin) {
         document.getElementById('modalPin').classList.add('open');
       } else {
@@ -576,10 +680,9 @@
       renderizarLista();
     }
 
-    function setFiltroCat(cat, btn) {
+    function setFiltroCat(cat) {
       filtroCat = cat;
-      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-      btn.classList.add('active');
+      renderizarCategoriasUI();
       renderizarLista();
     }
 
@@ -619,6 +722,7 @@
       try {
         const res = await api('listar');
         productos = res.productos || [];
+        renderizarCategoriasUI();
         renderizarLista();
       } catch (err) {
         console.error(err);
@@ -704,11 +808,13 @@
     let codigoPendiente = '';
     function abrirModalNuevoCodigo(codigo) {
       codigoPendiente = codigo;
+      renderizarCategoriasUI();
       document.getElementById('lblCodigoNuevo').textContent = codigo;
       document.getElementById('ncNombre').value = '';
       document.getElementById('ncUnidades').value = '1';
       document.getElementById('ncMinimo').value = '1';
       document.getElementById('ncCaducidad').value = '';
+      if (filtroCat !== 'Todos') document.getElementById('ncCategoria').value = filtroCat;
 
       const sel = document.getElementById('vcProductoSelect');
       sel.innerHTML = productos.map(p => `<option value="${p.id}">${escapeHtml(p.nombre)} (Actual: ${p.stock})</option>`).join('');
@@ -766,10 +872,11 @@
 
     function abrirModalManual() {
       pausaEscaneo = true;
+      renderizarCategoriasUI();
       document.getElementById('modalProdTitle').textContent = '➕ Añadir producto a mano';
       document.getElementById('editProdId').value = '';
       document.getElementById('mpNombre').value = '';
-      document.getElementById('mpCategoria').value = 'Comida';
+      document.getElementById('mpCategoria').value = filtroCat !== 'Todos' ? filtroCat : 'Comida';
       document.getElementById('mpStock').value = '1';
       document.getElementById('mpMinimo').value = '1';
       document.getElementById('mpCaducidad').value = '';
@@ -782,6 +889,7 @@
       const p = productos.find(x => x.id === id);
       if (!p) return;
       pausaEscaneo = true;
+      renderizarCategoriasUI();
       document.getElementById('modalProdTitle').textContent = '✏️ Editar producto';
       document.getElementById('editProdId').value = p.id;
       document.getElementById('mpNombre').value = p.nombre;
@@ -859,7 +967,9 @@
       document.getElementById('countShop').textContent = paraComprar.length;
 
       let lista = tabActual === 'comprar' ? paraComprar : productos;
-      if (filtroCat !== 'Todos') lista = lista.filter(p => p.categoria === filtroCat);
+      if (filtroCat !== 'Todos') {
+        lista = lista.filter(p => (p.categoria || 'Comida').toLowerCase() === filtroCat.toLowerCase());
+      }
       if (q) lista = lista.filter(p => p.nombre.toLowerCase().includes(q));
 
       const container = document.getElementById('productList');
@@ -881,7 +991,7 @@
             <div class="prod-info" onclick="abrirModalEditar(${p.id})" style="cursor:pointer;">
               <div class="prod-title">${escapeHtml(p.nombre)}</div>
               <div class="badges">
-                <span class="badge">${escapeHtml(p.categoria || 'Comida')}</span>
+                <span class="badge">${escapeHtml(etiquetaCat(p.categoria || 'Comida'))}</span>
                 ${bajoMinimo ? `<span class="badge warn">Faltan ${faltan} (mín: ${p.stock_minimo})</span>` : ''}
                 ${cadInfo ? `<span class="badge ${cadInfo.clase}">${cadInfo.texto}</span>` : ''}
                 ${p.codigos && p.codigos.length > 1 ? `<span class="badge">${p.codigos.length} códigos</span>` : ''}
